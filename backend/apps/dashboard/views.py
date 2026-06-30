@@ -3,18 +3,20 @@ from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncDate
 from django import forms
 from django.forms import modelform_factory
-from django.http import Http404, HttpResponseRedirect
+import csv
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.utils import timezone
+from django.utils.translation import gettext as _
 from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 from apps.users.models import User
-from apps.content.models import Category, Blog, Testimonial, SupportRequest
-from apps.exams.models import Question, Exam, ExamTrail
+from apps.content.models import Category, Blog, Testimonial, SupportRequest, Certificate
+from apps.exams.models import Question, Exam, ExamTrail, UserExam
 from apps.packages.models import Package, UserPackage
 from apps.payments.models import PaymentTransaction, Invoice
 
@@ -25,7 +27,8 @@ from apps.dashboard.exam_forms import QuestionForm, AnswerFormSet
 
 class StaffRequiredMixin(UserPassesTestMixin):
     def test_func(self):
-        return self.request.user.is_active and self.request.user.is_staff
+        user = self.request.user
+        return user.is_active and (user.is_staff or user.is_admin())
 
 
 @method_decorator(staff_member_required, name='dispatch')
@@ -56,8 +59,10 @@ class DashboardView(TemplateView):
                 total=Sum('amount')
             )['total'] or 0,
             'invoices': Invoice.objects.count(),
+            'certificates': Certificate.objects.count(),
             'pending_testimonials': Testimonial.objects.filter(status=Testimonial.PENDING).count(),
             'open_support': SupportRequest.objects.filter(status=SupportRequest.STATUS_OPEN).count(),
+            'pass_rate': self._compute_pass_rate(),
         }
 
         ctx['recent_users'] = User.objects.filter(deleted_at__isnull=True).order_by('-date_joined')[:8]
@@ -96,7 +101,20 @@ class DashboardView(TemplateView):
         ctx['transactions_chart'] = [transactions_daily.get(d, 0) for d in ctx['chart_labels']]
         ctx['trails_chart'] = [trails_daily.get(d, 0) for d in ctx['chart_labels']]
 
+        ctx['stats']['users_growth_subtext'] = _('+{count} in last 30 days').format(count=ctx['stats']['users_last_30'])
+        ctx['stats']['transactions_subtext'] = _('{count} successful transactions').format(count=ctx['stats']['transactions'])
+
         return ctx
+
+    def _compute_pass_rate(self):
+        total = UserExam.objects.filter(status__in=[UserExam.STATUS_SUBMITTED]).count()
+        if not total:
+            return 0
+        passed = UserExam.objects.filter(
+            status=UserExam.STATUS_SUBMITTED,
+            score__gte=50,
+        ).count()
+        return round((passed / total) * 100, 1)
 
 
 class ModelCRUDMixin(StaffRequiredMixin):
@@ -134,7 +152,18 @@ class ModelCRUDMixin(StaffRequiredMixin):
         ctx['config'] = self.config
         ctx['section'] = self.section
         ctx['model_meta'] = self.model_meta
+        ctx['breadcrumb'] = self._build_breadcrumb(ctx.get('action'), ctx.get('object'))
         return ctx
+
+    def _build_breadcrumb(self, action=None, obj=None):
+        base = [{'label': self.config['verbose_name'], 'url': f'/admin/{self.section}/'}]
+        if action == 'create':
+            base.append({'label': 'Add New'})
+        elif action == 'update' and obj:
+            base.append({'label': f'#{obj.pk}'})
+        elif action == 'delete' and obj:
+            base.append({'label': f'#{obj.pk}'})
+        return base
 
     def _check_permission(self, codename):
         perm = f"{self.model_meta.app_label}.{codename}_{self.model_meta.model_name}"
@@ -146,12 +175,30 @@ class ModelListView(ModelCRUDMixin, ListView):
     paginate_by = 25
     context_object_name = 'object_list'
 
+    def get(self, request, *args, **kwargs):
+        if request.GET.get('export') == 'csv' and self.config.get('exportable', False):
+            return self._export_csv()
+        return super().get(request, *args, **kwargs)
+
+    def _export_csv(self):
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{self.section}.csv"'
+        writer = csv.writer(response)
+        headers = [self.model_meta.get_field(col).verbose_name for col in self.config.get('list_display', ['__str__'])]
+        writer.writerow(headers)
+        for obj in self.get_queryset()[:5000]:
+            row = []
+            for col in self.config.get('list_display', ['__str__']):
+                row.append(getattr(obj, col, '') or '')
+            writer.writerow(row)
+        return response
+
     def get_queryset(self):
         qs = super().get_queryset()
         if hasattr(self.model, 'deleted_at'):
             qs = qs.filter(deleted_at__isnull=True)
-        if not self.model._meta.ordering:
-            qs = qs.order_by('-pk')
+
+        # Search
         search_fields = self.config.get('search_fields', [])
         q = self.request.GET.get('q')
         if q and search_fields:
@@ -160,6 +207,7 @@ class ModelListView(ModelCRUDMixin, ListView):
                 query |= Q(**{f'{field}__icontains': q})
             qs = qs.filter(query)
 
+        # Filters
         list_filter = self.config.get('list_filter', [])
         for field_name in list_filter:
             value = self.request.GET.get(f'f_{field_name}')
@@ -171,6 +219,16 @@ class ModelListView(ModelCRUDMixin, ListView):
                     qs = qs.filter(**{field_name: value == '1'})
                 else:
                     qs = qs.filter(**{field_name: value})
+
+        # Ordering
+        ordering = self.request.GET.get('ordering')
+        valid_fields = set(self.config.get('list_display', []))
+        if ordering:
+            bare = ordering.lstrip('-')
+            if bare in valid_fields or bare in (f.name for f in self.model._meta.fields):
+                qs = qs.order_by(ordering)
+        elif not self.model._meta.ordering:
+            qs = qs.order_by('-pk')
         return qs
 
     def get_context_data(self, **kwargs):
@@ -178,7 +236,44 @@ class ModelListView(ModelCRUDMixin, ListView):
         ctx['search_query'] = self.request.GET.get('q', '')
         ctx['list_display'] = self.config.get('list_display', ['__str__'])
         ctx['filters'] = self._build_filters()
+        ctx['can_export'] = self.config.get('exportable', False)
+        ctx['can_import'] = self.config.get('importable', False)
+        ctx['has_active_filters'] = any(f['current'] for f in ctx['filters'])
+        ctx['current_ordering'] = self.request.GET.get('ordering', '')
+        ctx['query_string'] = self._query_string_for_pagination()
+        ctx['page_range'] = self._page_range(ctx.get('page_obj'))
         return ctx
+
+    def _query_string_for_pagination(self):
+        params = []
+        q = self.request.GET.get('q')
+        if q:
+            params.append(f'q={q}')
+        for field_name in self.config.get('list_filter', []):
+            value = self.request.GET.get(f'f_{field_name}')
+            if value:
+                params.append(f'f_{field_name}={value}')
+        return '&' + '&'.join(params) if params else ''
+
+    def _page_range(self, page_obj):
+        if not page_obj:
+            return []
+        paginator = page_obj.paginator
+        current = page_obj.number
+        pages = []
+        if paginator.num_pages <= 7:
+            pages = list(range(1, paginator.num_pages + 1))
+        else:
+            pages = [1]
+            if current > 3:
+                pages.append('...')
+            start = max(2, current - 1)
+            end = min(paginator.num_pages - 1, current + 1)
+            pages.extend(range(start, end + 1))
+            if current < paginator.num_pages - 2:
+                pages.append('...')
+            pages.append(paginator.num_pages)
+        return pages
 
     def _build_filters(self):
         filters = []

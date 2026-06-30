@@ -1,73 +1,63 @@
 {% extends "dashboard/base.html" %}
 {% load i18n dashboard_tags %}
 
-{% block title %}{% if action == 'create' %}إضافة{% else %}تعديل{% endif %} {{ config.verbose_name|ar }}{% endblock %}
-{% block page_title %}{% if action == 'create' %}إضافة{% else %}تعديل{% endif %} {{ config.verbose_name|ar }}{% endblock %}
+{% block title %}{% if action == 'create' %}{% trans "Add" %}{% else %}{% trans "Edit" %}{% endif %} {{ config.verbose_name|ar }}{% endblock %}
+{% block page_title %}{% if action == 'create' %}{% trans "Add" %}{% else %}{% trans "Edit" %}{% endif %} {{ config.verbose_name|ar }}{% endblock %}
 
 {% block content %}
 <div class="max-w-5xl mx-auto">
-  <!-- Header -->
-  <div class="bg-gradient-to-r from-brand-600 to-brand-700 rounded-t-2xl shadow-lg px-8 py-6 text-white">
-    <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur">
-        <i class="fas fa-edit text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-2xl font-bold">
-          {% if action == 'create' %}إضافة {{ config.verbose_name|ar }} جديد{% else %}{{ config.verbose_name|ar }} #{{ object.pk }}{% endif %}
-        </h2>
-        <p class="text-brand-100 text-sm mt-1">راجع البيانات قبل الحفظ</p>
-      </div>
+  <!-- Page header -->
+  <div class="admin-card rounded-2xl p-6 shadow-sm mb-6 flex items-center gap-4">
+    <div class="w-14 h-14 rounded-xl bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+      <i class="fa-solid fa-pen-to-square text-2xl"></i>
+    </div>
+    <div>
+      <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">
+        {% if action == 'create' %}{% trans "Add New" %} {{ config.verbose_name|ar }}{% else %}{{ config.verbose_name|ar }} #{{ object.pk }}{% endif %}
+      </h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">{% trans "Review the information before saving." %}</p>
     </div>
   </div>
 
-  <form method="post" class="bg-white rounded-b-2xl shadow-lg border-x border-b border-slate-200 p-8">
+  <form method="post" enctype="multipart/form-data" class="admin-card rounded-2xl shadow-sm p-6 lg:p-8">
     {% csrf_token %}
 
     {% if form.non_field_errors %}
-      <div class="bg-rose-50 border border-rose-200 text-rose-700 px-5 py-4 rounded-xl text-sm flex items-start gap-3 mb-6">
-        <i class="fas fa-exclamation-circle mt-0.5"></i>
+      <div class="mb-6 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-900/30 text-rose-700 dark:text-rose-300 px-5 py-4 text-sm flex items-start gap-3">
+        <i class="fa-solid fa-circle-exclamation mt-0.5"></i>
         <div>{{ form.non_field_errors }}</div>
       </div>
     {% endif %}
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-      {% for field in form %}
-        <div class="{% if field.field.widget.input_type == 'textarea' or field.name == 'instructions' or field.name == 'message' or field.name == 'description' or field.name == 'question_text' or field.name == 'text_question' or field.name == 'notes' or field.name == 'content' %}md:col-span-2{% endif %}
-          bg-slate-50 rounded-xl border border-slate-300 p-5 transition hover:border-brand-300">
-          <label for="{{ field.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">
-            {{ field.label }}
-          </label>
-          {{ field }}
-          {% if field.help_text %}
-            <p class="mt-2 text-xs text-slate-500 leading-relaxed">{{ field.help_text }}</p>
+    <!-- Basic Info Card -->
+    <div class="mb-6">
+      <h3 class="text-sm font-bold text-slate-800 dark:text-slate-100 uppercase tracking-wider mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-circle-info text-brand-500"></i> {% trans "Basic Information" %}
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {% for field in form %}
+          {% if field.field.widget.input_type == 'textarea' or field.name in 'instructions,message,description,question_text,text_question,notes,content' %}
+            {% include "dashboard/partials/form_field.html" with wide=True %}
+          {% else %}
+            {% include "dashboard/partials/form_field.html" %}
           {% endif %}
-          {% if field.errors %}
-            <p class="mt-2 text-xs text-rose-600 font-medium">{{ field.errors }}</p>
-          {% endif %}
-        </div>
-      {% endfor %}
+        {% endfor %}
+      </div>
     </div>
 
-    <div class="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-slate-200">
-      <a href="{% url 'dashboard:list' section %}" class="px-6 py-2.5 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 text-sm font-bold transition">
-        إلغاء
+    <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-100 dark:border-slate-700">
+      <a href="{% url 'dashboard:list' section %}" class="px-5 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium transition">
+        {% trans "Cancel" %}
       </a>
-      <button type="submit" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-200 transition">
-        <i class="fas fa-save ml-2"></i> حفظ
+      <button type="submit" class="px-5 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium shadow-sm transition inline-flex items-center gap-2">
+        <i class="fa-solid fa-floppy-disk"></i> {% trans "Save" %}
       </button>
     </div>
   </form>
 </div>
 
 <style>
-  textarea {
-    min-height: 120px;
-  }
-  input[type="checkbox"] {
-    width: 1.25rem;
-    height: 1.25rem;
-    accent-color: #4f46e5;
-  }
+  textarea { min-height: 120px; }
+  input[type="checkbox"] { width: 1.25rem; height: 1.25rem; accent-color: #4f46e5; }
 </style>
-{% endblock %}
+{% endblock content %}
