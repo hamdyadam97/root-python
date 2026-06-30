@@ -1,0 +1,327 @@
+{% extends "dashboard/base.html" %}
+{% load i18n %}
+
+{% block title %}نظرة عامة{% endblock %}
+{% block page_title %}نظرة عامة{% endblock %}
+
+{% block content %}
+<!-- Stats Grid -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">إجمالي المستخدمين</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.users }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-brand-50 text-brand-600 flex items-center justify-center">
+        <i class="fas fa-users text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">+{{ stats.users_last_30 }} في آخر 30 يوم</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">الأسئلة</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.questions }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+        <i class="fas fa-question-circle text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">في كل الأقسام</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">الامتحانات</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.exams }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center">
+        <i class="fas fa-file-alt text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">{{ stats.exam_trails }} مسار تم أخذه</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">الإيرادات</p>
+        <p class="text-2xl font-bold text-slate-800">${{ stats.revenue|floatformat:2 }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center">
+        <i class="fas fa-dollar-sign text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">{{ stats.transactions }} معاملة ناجحة</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">الباقات</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.packages }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-cyan-50 text-cyan-600 flex items-center justify-center">
+        <i class="fas fa-box-open text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">{{ stats.active_subscriptions }} اشتراك نشط</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">الأقسام</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.categories }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-violet-50 text-violet-600 flex items-center justify-center">
+        <i class="fas fa-folder-tree text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">{{ stats.blogs }} مقال</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">آراء معلّقة</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.pending_testimonials }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center">
+        <i class="fas fa-star text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">في انتظار الموافقة</p>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm p-5 border border-slate-100">
+    <div class="flex items-center justify-between">
+      <div>
+        <p class="text-sm text-slate-500">دعم مفتوح</p>
+        <p class="text-2xl font-bold text-slate-800">{{ stats.open_support }}</p>
+      </div>
+      <div class="w-12 h-12 rounded-full bg-pink-50 text-pink-600 flex items-center justify-center">
+        <i class="fas fa-headset text-lg"></i>
+      </div>
+    </div>
+    <p class="text-xs text-slate-400 mt-2">تذاكر تحتاج اهتمام</p>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+  <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100 lg:col-span-2">
+    <h2 class="text-base font-bold text-slate-800 mb-4">النشاط خلال آخر 30 يوم</h2>
+    <canvas id="activityChart" height="120"></canvas>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm p-6 border border-slate-100">
+    <h2 class="text-base font-bold text-slate-800 mb-4">إحصائيات سريعة</h2>
+    <div class="space-y-4">
+      <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+        <span class="text-sm text-slate-600">الفواتير</span>
+        <span class="font-bold text-slate-800">{{ stats.invoices }}</span>
+      </div>
+      <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+        <span class="text-sm text-slate-600">الاشتراكات</span>
+        <span class="font-bold text-slate-800">{{ stats.subscriptions }}</span>
+      </div>
+      <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+        <span class="text-sm text-slate-600">مسارات الامتحان</span>
+        <span class="font-bold text-slate-800">{{ stats.exam_trails }}</span>
+      </div>
+      <div class="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
+        <span class="text-sm text-slate-600">اشتراكات نشطة</span>
+        <span class="font-bold text-emerald-600">{{ stats.active_subscriptions }}</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-base font-bold text-slate-800">أحدث المستخدمين</h2>
+      <a href="{% url 'dashboard:list' 'users' %}" class="text-sm text-brand-600 hover:text-brand-700">عرض الكل</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-right">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr>
+            <th class="px-6 py-3 font-medium">الاسم</th>
+            <th class="px-6 py-3 font-medium">الهاتف</th>
+            <th class="px-6 py-3 font-medium">تاريخ الانضمام</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for u in recent_users %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-3">{{ u.full_name|default:"—" }}</td>
+            <td class="px-6 py-3 text-slate-500">{{ u.phone|default:"—" }}</td>
+            <td class="px-6 py-3 text-slate-500">{{ u.date_joined|date:"Y-m-d" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="px-6 py-4 text-slate-400 text-center">لا يوجد مستخدمين بعد</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-base font-bold text-slate-800">أحدث المعاملات</h2>
+      <a href="{% url 'dashboard:list' 'transactions' %}" class="text-sm text-brand-600 hover:text-brand-700">عرض الكل</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-right">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr>
+            <th class="px-6 py-3 font-medium">المستخدم</th>
+            <th class="px-6 py-3 font-medium">المبلغ</th>
+            <th class="px-6 py-3 font-medium">الحالة</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for t in recent_transactions %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-3">{{ t.user.full_name|default:t.user.phone }}</td>
+            <td class="px-6 py-3">{{ t.amount|floatformat:2 }} {{ t.currency }}</td>
+            <td class="px-6 py-3">
+              {% if t.is_success %}
+                <span class="px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-700">ناجح</span>
+              {% else %}
+                <span class="px-2 py-1 rounded-full text-xs bg-rose-100 text-rose-700">فاشل</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="px-6 py-4 text-slate-400 text-center">لا توجد معاملات بعد</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-base font-bold text-slate-800">أحدث الاشتراكات</h2>
+      <a href="{% url 'dashboard:list' 'subscriptions' %}" class="text-sm text-brand-600 hover:text-brand-700">عرض الكل</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-right">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr>
+            <th class="px-6 py-3 font-medium">المستخدم</th>
+            <th class="px-6 py-3 font-medium">الباقة</th>
+            <th class="px-6 py-3 font-medium">الحالة</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for s in recent_subscriptions %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-3">{{ s.user.full_name|default:s.user.phone }}</td>
+            <td class="px-6 py-3">{{ s.package.name }}</td>
+            <td class="px-6 py-3">
+              {% if s.is_active %}
+                <span class="px-2 py-1 rounded-full text-xs bg-emerald-100 text-emerald-700">نشط</span>
+              {% else %}
+                <span class="px-2 py-1 rounded-full text-xs bg-slate-100 text-slate-600">غير نشط</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="px-6 py-4 text-slate-400 text-center">لا توجد اشتراكات بعد</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-100">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <h2 class="text-base font-bold text-slate-800">أحدث مسارات الامتحان</h2>
+      <a href="{% url 'dashboard:list' 'exam_trails' %}" class="text-sm text-brand-600 hover:text-brand-700">عرض الكل</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm text-right">
+        <thead class="bg-slate-50 text-slate-500">
+          <tr>
+            <th class="px-6 py-3 font-medium">العنوان</th>
+            <th class="px-6 py-3 font-medium">المستخدم</th>
+            <th class="px-6 py-3 font-medium">التاريخ</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          {% for trail in recent_trails %}
+          <tr class="hover:bg-slate-50">
+            <td class="px-6 py-3">{{ trail.title }}</td>
+            <td class="px-6 py-3 text-slate-500">{{ trail.user.full_name|default:trail.user.phone }}</td>
+            <td class="px-6 py-3 text-slate-500">{{ trail.created_at|date:"Y-m-d" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="3" class="px-6 py-4 text-slate-400 text-center">لا توجد مسارات بعد</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+{{ chart_labels|json_script:"chart-labels" }}
+{{ users_chart|json_script:"users-chart" }}
+{{ transactions_chart|json_script:"transactions-chart" }}
+{{ trails_chart|json_script:"trails-chart" }}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const labels = JSON.parse(document.getElementById('chart-labels').textContent);
+  const usersData = JSON.parse(document.getElementById('users-chart').textContent);
+  const transactionsData = JSON.parse(document.getElementById('transactions-chart').textContent);
+  const trailsData = JSON.parse(document.getElementById('trails-chart').textContent);
+
+  new Chart(document.getElementById('activityChart'), {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'مستخدمين جدد',
+          data: usersData,
+          borderColor: '#4f46e5',
+          backgroundColor: 'rgba(79, 70, 229, 0.1)',
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: 'معاملات',
+          data: transactionsData,
+          borderColor: '#10b981',
+          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          tension: 0.3,
+          fill: true,
+        },
+        {
+          label: 'مسارات امتحان',
+          data: trailsData,
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          tension: 0.3,
+          fill: true,
+        },
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { position: 'top' } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,127 @@
+{% extends "dashboard/base.html" %}
+{% load i18n dashboard_tags %}
+
+{% block title %}{{ config.verbose_name|ar }}{% endblock %}
+{% block page_title %}{{ config.verbose_name|ar }}{% endblock %}
+
+{% block content %}
+<div class="bg-white rounded-xl shadow-sm border border-slate-100">
+  <!-- Header -->
+  <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <h2 class="text-lg font-bold text-slate-800">{{ config.verbose_name|ar }}</h2>
+    {% if section == 'questions' %}
+      <a href="{% url 'dashboard:question_create' %}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+        <i class="fas fa-plus"></i> إضافة جديد
+      </a>
+    {% else %}
+      <a href="{% url 'dashboard:create' section %}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
+        <i class="fas fa-plus"></i> إضافة جديد
+      </a>
+    {% endif %}
+  </div>
+
+  <!-- Search & Filters -->
+  <div class="p-6 border-b border-slate-100 bg-slate-50">
+    <form method="get" class="flex flex-col lg:flex-row gap-4">
+      <div class="flex-1">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="بحث..."
+          class="w-full rounded-lg border-slate-300 focus:border-brand-500 focus:ring-brand-500">
+      </div>
+      {% for f in filters %}
+        <select name="{{ f.name }}" class="rounded-lg border-slate-300 focus:border-brand-500 focus:ring-brand-500">
+          <option value="">{{ f.label|ar }}</option>
+          {% for opt in f.options %}
+            <option value="{{ opt.value }}" {% if f.current == opt.value %}selected{% endif %}>{{ opt.label|ar }}</option>
+          {% endfor %}
+        </select>
+      {% endfor %}
+      <button type="submit" class="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium">
+        <i class="fas fa-filter"></i> تصفية
+      </button>
+      {% if search_query or filters %}
+        <a href="{% url 'dashboard:list' section %}" class="inline-flex items-center justify-center text-slate-600 hover:text-slate-800 px-3 py-2 text-sm">
+          مسح
+        </a>
+      {% endif %}
+    </form>
+  </div>
+
+  <!-- Table -->
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm text-right">
+      <thead class="bg-slate-50 text-slate-600">
+        <tr>
+          {% for col in list_display %}
+            <th class="px-6 py-3 font-semibold">{{ model_meta|field_verbose:col }}</th>
+          {% endfor %}
+          <th class="px-6 py-3 font-semibold">إجراءات</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        {% for obj in object_list %}
+          <tr class="hover:bg-slate-50 transition">
+            {% for col in list_display %}
+              <td class="px-6 py-3">
+                {% if forloop.first %}
+                  {% if section == 'questions' %}
+                    <a href="{% url 'dashboard:question_update' obj.pk %}" class="text-brand-600 hover:text-brand-800 font-medium">
+                      {{ obj|dashboard_attr:col }}
+                    </a>
+                  {% else %}
+                    <a href="{% url 'dashboard:update' section obj.pk %}" class="text-brand-600 hover:text-brand-800 font-medium">
+                      {{ obj|dashboard_attr:col }}
+                    </a>
+                  {% endif %}
+                {% else %}
+                  <span class="text-slate-600">{{ obj|dashboard_attr:col }}</span>
+                {% endif %}
+              </td>
+            {% endfor %}
+            <td class="px-6 py-3">
+              <div class="flex items-center gap-2">
+                {% if section == 'questions' %}
+                  <a href="{% url 'dashboard:question_update' obj.pk %}" class="text-amber-600 hover:text-amber-800" title="تعديل">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                {% else %}
+                  <a href="{% url 'dashboard:update' section obj.pk %}" class="text-amber-600 hover:text-amber-800" title="تعديل">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                {% endif %}
+                <a href="{% url 'dashboard:delete' section obj.pk %}" class="text-rose-600 hover:text-rose-800" title="حذف">
+                  <i class="fas fa-trash"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="{{ list_display|length|add:1 }}" class="px-6 py-8 text-center text-slate-400">
+              لا توجد سجلات.
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Pagination -->
+  {% if page_obj.has_other_pages %}
+    <div class="px-6 py-4 border-t border-slate-100 flex items-center justify-between">
+      <p class="text-sm text-slate-500">
+        صفحة {{ page_obj.number }} من {{ paginator.num_pages }}
+      </p>
+      <div class="flex gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% for f in filters %}{% if f.current %}&{{ f.name }}={{ f.current }}{% endif %}{% endfor %}"
+             class="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50 text-sm">السابق</a>
+        {% endif %}
+        {% if page_obj.has_next %}
+          <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% for f in filters %}{% if f.current %}&{{ f.name }}={{ f.current }}{% endif %}{% endfor %}"
+             class="px-3 py-1 border border-slate-300 rounded hover:bg-slate-50 text-sm">التالي</a>
+        {% endif %}
+      </div>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
