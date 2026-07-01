@@ -25,6 +25,10 @@
       <a href="{% url 'dashboard:question_create' %}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
         <i class="fa-solid fa-plus"></i> {% trans "Add New" %}
       </a>
+    {% elif section == 'exams' %}
+      <a href="{% url 'dashboard:exam_create' %}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
+        <i class="fa-solid fa-plus"></i> {% trans "Add New" %}
+      </a>
     {% else %}
       <a href="{% url 'dashboard:create' section %}" class="inline-flex items-center gap-2 bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition shadow-sm">
         <i class="fa-solid fa-plus"></i> {% trans "Add New" %}
@@ -62,18 +66,23 @@
 
 <!-- Data Table -->
 <div class="admin-card rounded-2xl shadow-sm overflow-hidden">
-  <!-- Bulk actions bar (placeholder) -->
-  <div class="px-6 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex items-center gap-3">
-    <input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
-    <label for="selectAll" class="text-sm text-slate-600 dark:text-slate-300">{% trans "Select all" %}</label>
-    <span class="text-slate-300">|</span>
-    <button class="text-sm text-slate-600 dark:text-slate-300 hover:text-brand-600 disabled:opacity-50" disabled>
-      <i class="fa-solid fa-box-archive me-1"></i>{% trans "Archive" %}
-    </button>
-    <button class="text-sm text-slate-600 dark:text-slate-300 hover:text-brand-600 disabled:opacity-50" disabled>
-      <i class="fa-solid fa-trash me-1"></i>{% trans "Delete" %}
-    </button>
-  </div>
+  <form method="post" action="{% url 'dashboard:bulk_action' section %}" id="bulkForm">
+    {% csrf_token %}
+    <div class="px-6 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 flex flex-wrap items-center gap-3">
+      <input type="checkbox" id="selectAll" class="w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500">
+      <label for="selectAll" class="text-sm text-slate-600 dark:text-slate-300">{% trans "Select all" %}</label>
+      <span class="text-slate-300">|</span>
+      <input type="hidden" name="bulk_action" id="bulkActionInput" value="">
+      <button type="button" onclick="submitBulk('archive')" class="bulk-btn text-sm text-slate-600 dark:text-slate-300 hover:text-brand-600 disabled:opacity-50" disabled>
+        <i class="fa-solid fa-box-archive me-1"></i>{% trans "Archive" %}
+      </button>
+      <button type="button" onclick="submitBulk('restore')" class="bulk-btn text-sm text-slate-600 dark:text-slate-300 hover:text-brand-600 disabled:opacity-50" disabled>
+        <i class="fa-solid fa-rotate-left me-1"></i>{% trans "Restore" %}
+      </button>
+      <button type="button" onclick="submitBulk('delete')" class="bulk-btn text-sm text-rose-600 hover:text-rose-700 disabled:opacity-50" disabled>
+        <i class="fa-solid fa-trash me-1"></i>{% trans "Delete" %}
+      </button>
+    </div>
 
   <div class="overflow-x-auto">
     <table class="w-full text-sm admin-table">
@@ -95,12 +104,16 @@
       <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
         {% for obj in object_list %}
           <tr class="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
-            <td class="px-4 py-3"><input type="checkbox" class="row-checkbox w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500"></td>
+            <td class="px-4 py-3"><input type="checkbox" class="row-checkbox w-4 h-4 rounded border-slate-300 text-brand-600 focus:ring-brand-500" value="{{ obj.pk }}"></td>
             {% for col in list_display %}
               <td class="px-4 py-3">
                 {% if forloop.first %}
                   {% if section == 'questions' %}
                     <a href="{% url 'dashboard:question_update' obj.pk %}" class="text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium">
+                      {{ obj|dashboard_attr:col }}
+                    </a>
+                  {% elif section == 'exams' %}
+                    <a href="{% url 'dashboard:exam_update' obj.pk %}" class="text-brand-600 hover:text-brand-700 dark:text-brand-400 font-medium">
                       {{ obj|dashboard_attr:col }}
                     </a>
                   {% else %}
@@ -109,7 +122,7 @@
                     </a>
                   {% endif %}
                 {% elif col == 'status' %}
-                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium
+                  <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
                     {% if obj.status == 1 %}bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400
                     {% elif obj.status == 0 %}bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300
                     {% else %}bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400{% endif %}">
@@ -121,15 +134,31 @@
               </td>
             {% endfor %}
             <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1">
                 {% if section == 'questions' %}
                   <a href="{% url 'dashboard:question_update' obj.pk %}" class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-100 flex items-center justify-center" title="{% trans 'Edit' %}">
+                    <i class="fa-solid fa-pen text-xs"></i>
+                  </a>
+                {% elif section == 'exams' %}
+                  <a href="{% url 'dashboard:exam_update' obj.pk %}" class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-100 flex items-center justify-center" title="{% trans 'Edit' %}">
                     <i class="fa-solid fa-pen text-xs"></i>
                   </a>
                 {% else %}
                   <a href="{% url 'dashboard:update' section obj.pk %}" class="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 hover:bg-amber-100 flex items-center justify-center" title="{% trans 'Edit' %}">
                     <i class="fa-solid fa-pen text-xs"></i>
                   </a>
+                {% endif %}
+                <button type="button" hx-post="{% url 'dashboard:duplicate' section obj.pk %}" hx-confirm="{% trans 'Duplicate this record?' %}" class="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 flex items-center justify-center" title="{% trans 'Duplicate' %}">
+                  <i class="fa-solid fa-copy text-xs"></i>
+                </button>
+                {% if obj.deleted_at or obj.status == 0 %}
+                  <button type="button" hx-post="{% url 'dashboard:restore' section obj.pk %}" class="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 hover:bg-emerald-100 flex items-center justify-center" title="{% trans 'Restore' %}">
+                    <i class="fa-solid fa-rotate-left text-xs"></i>
+                  </button>
+                {% else %}
+                  <button type="button" hx-post="{% url 'dashboard:archive' section obj.pk %}" hx-confirm="{% trans 'Archive this record?' %}" class="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-900/20 text-orange-600 hover:bg-orange-100 flex items-center justify-center" title="{% trans 'Archive' %}">
+                    <i class="fa-solid fa-box-archive text-xs"></i>
+                  </button>
                 {% endif %}
                 <a href="{% url 'dashboard:delete' section obj.pk %}" class="w-8 h-8 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-600 hover:bg-rose-100 flex items-center justify-center" title="{% trans 'Delete' %}">
                   <i class="fa-solid fa-trash text-xs"></i>
@@ -150,7 +179,45 @@
       </tbody>
     </table>
   </div>
+  </form>
 
   {% include "dashboard/partials/pagination.html" %}
 </div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const selectAll = document.getElementById('selectAll');
+    const rowBoxes = document.querySelectorAll('.row-checkbox');
+    const bulkBtns = document.querySelectorAll('.bulk-btn');
+
+    function updateButtons() {
+      const any = Array.from(rowBoxes).some(c => c.checked);
+      bulkBtns.forEach(b => b.disabled = !any);
+    }
+
+    selectAll?.addEventListener('change', function() {
+      rowBoxes.forEach(cb => cb.checked = selectAll.checked);
+      updateButtons();
+    });
+
+    rowBoxes.forEach(cb => cb.addEventListener('change', updateButtons));
+  });
+
+  function submitBulk(action) {
+    const boxes = document.querySelectorAll('.row-checkbox:checked');
+    if (!boxes.length) return;
+    const form = document.getElementById('bulkForm');
+    document.getElementById('bulkActionInput').value = action;
+    // remove old selected inputs
+    form.querySelectorAll('input[name="selected_ids"]').forEach(i => i.remove());
+    boxes.forEach(cb => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'selected_ids';
+      input.value = cb.value;
+      form.appendChild(input);
+    });
+    form.submit();
+  }
+</script>
 {% endblock content %}

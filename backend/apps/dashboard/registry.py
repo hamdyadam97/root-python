@@ -19,9 +19,12 @@ from apps.payments.models import (
     PaymentType, PaymentTransaction, MoneyLog,
     PaymentCardToken, Invoice,
 )
+from apps.dashboard.forms import CategoryForm
 
 
-def _base(model, verbose_name, list_display, search_fields=None, list_filter=None, exclude=None):
+def _base(model, verbose_name, list_display, search_fields=None, list_filter=None, exclude=None,
+          group=None, icon=None, color=None, form_class=None, exportable=False, importable=False,
+          archivable=False, duplicatable=False):
     return {
         'model': model,
         'verbose_name': verbose_name,
@@ -29,6 +32,14 @@ def _base(model, verbose_name, list_display, search_fields=None, list_filter=Non
         'search_fields': search_fields or [],
         'list_filter': list_filter or [],
         'exclude': exclude or ['created_at', 'updated_at', 'deleted_at'],
+        'group': group,
+        'icon': icon,
+        'color': color,
+        'form_class': form_class,
+        'exportable': exportable,
+        'importable': importable,
+        'archivable': archivable,
+        'duplicatable': duplicatable,
     }
 
 
@@ -75,6 +86,8 @@ DASHBOARD_MODELS = {
         search_fields=['name'],
         list_filter=['status', 'level'],
         exclude=['deleted_at'],
+        group='content', icon='fa-folder-tree', color='violet',
+        form_class=CategoryForm, exportable=True, importable=True, archivable=True,
     ),
     'topics': _base(
         QuestionsTopic, 'Question Topics',

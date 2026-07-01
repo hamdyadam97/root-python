@@ -4,13 +4,15 @@ from django.db.models.functions import TruncDate
 from django import forms
 from django.forms import modelform_factory
 import csv
+import io
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from django.utils.decorators import method_decorator
-from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView
+from django.views.generic import TemplateView, ListView, CreateView, UpdateView, DeleteView, View
+from django.contrib import messages
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth.mixins import UserPassesTestMixin
 
@@ -22,7 +24,7 @@ from apps.payments.models import PaymentTransaction, Invoice
 
 from apps.dashboard.registry import get_config
 from apps.dashboard.forms import BaseDashboardForm, UserDashboardForm
-from apps.dashboard.exam_forms import QuestionForm, AnswerFormSet
+from apps.dashboard.exam_forms import QuestionForm, AnswerFormSet, ExamForm, ExamQuestionFormSet
 
 
 class StaffRequiredMixin(UserPassesTestMixin):
@@ -117,6 +119,75 @@ class DashboardView(TemplateView):
         return round((passed / total) * 100, 1)
 
 
+@method_decorator(staff_member_required, name='dispatch')
+class ReportsView(TemplateView):
+    template_name = 'dashboard/reports/index.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        today = timezone.now()
+        last_30 = today - timedelta(days=30)
+
+        ctx['stats'] = {
+            'users': User.objects.filter(deleted_at__isnull=True).count(),
+            'questions': Question.objects.count(),
+            'exams': Exam.objects.count(),
+            'subscriptions': UserPackage.objects.count(),
+            'active_subscriptions': UserPackage.objects.filter(
+                subscription_status=UserPackage.ACTIVE,
+                end_date__gte=today.date(),
+            ).count(),
+            'revenue': PaymentTransaction.objects.filter(is_success=True).aggregate(
+                total=Sum('amount')
+            )['total'] or 0,
+            'pass_rate': self._pass_rate(),
+        }
+
+        ctx['chart_labels'] = [(last_30 + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(31)]
+
+        def to_daily_map(qs):
+            return {str(item['date']): item['count'] for item in qs}
+
+        ctx['users_chart'] = [
+            to_daily_map(
+                User.objects.filter(date_joined__date__gte=last_30.date())
+                .annotate(date=TruncDate('date_joined'))
+                .values('date')
+                .annotate(count=Count('id'))
+                .order_by('date')
+            ).get(d, 0) for d in ctx['chart_labels']
+        ]
+        ctx['subscriptions_chart'] = [
+            to_daily_map(
+                UserPackage.objects.filter(created_at__date__gte=last_30.date())
+                .annotate(date=TruncDate('created_at'))
+                .values('date')
+                .annotate(count=Count('id'))
+                .order_by('date')
+            ).get(d, 0) for d in ctx['chart_labels']
+        ]
+        ctx['revenue_chart'] = [
+            to_daily_map(
+                PaymentTransaction.objects.filter(created_at__date__gte=last_30.date(), is_success=True)
+                .annotate(date=TruncDate('created_at'))
+                .values('date')
+                .annotate(count=Count('id'))
+                .order_by('date')
+            ).get(d, 0) for d in ctx['chart_labels']
+        ]
+
+        ctx['top_students'] = User.objects.filter(deleted_at__isnull=True).order_by('-score')[:10]
+        ctx['top_categories'] = Category.objects.annotate(q_count=Count('questions')).order_by('-q_count')[:10]
+        return ctx
+
+    def _pass_rate(self):
+        total = UserExam.objects.filter(status=UserExam.STATUS_SUBMITTED).count()
+        if not total:
+            return 0
+        passed = UserExam.objects.filter(status=UserExam.STATUS_SUBMITTED, score__gte=50).count()
+        return round((passed / total) * 100, 1)
+
+
 class ModelCRUDMixin(StaffRequiredMixin):
     """Shared logic for model-based CRUD views."""
 
@@ -136,6 +207,8 @@ class ModelCRUDMixin(StaffRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
     def get_form_class(self):
+        if self.config.get('form_class'):
+            return self.config['form_class']
         if self.model == User:
             return UserDashboardForm
         exclude = self.config.get('exclude', ['created_at', 'updated_at', 'deleted_at'])
@@ -342,6 +415,194 @@ class ModelDeleteView(ModelCRUDMixin, DeleteView):
         else:
             self.object.delete()
         return HttpResponseRedirect(self.get_success_url())
+
+
+class ModelArchiveView(ModelCRUDMixin, View):
+    """Archive (soft-delete or deactivate) a single object."""
+    required_permission = 'change'
+
+    def get_object(self):
+        return get_object_or_404(self.model, pk=self.kwargs.get('pk'))
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if hasattr(obj, 'deleted_at'):
+            obj.deleted_at = timezone.now()
+            obj.save(update_fields=['deleted_at'])
+        elif hasattr(obj, 'status'):
+            inactive = getattr(self.model, 'INACTIVE', 0)
+            obj.status = inactive
+            obj.save(update_fields=['status'])
+        return HttpResponseRedirect(reverse_lazy('dashboard:list', kwargs={'section': self.section}))
+
+
+class ModelRestoreView(ModelCRUDMixin, View):
+    """Restore an archived object."""
+    required_permission = 'change'
+
+    def get_object(self):
+        return get_object_or_404(self.model, pk=self.kwargs.get('pk'))
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object()
+        if hasattr(obj, 'deleted_at'):
+            obj.deleted_at = None
+            obj.save(update_fields=['deleted_at'])
+        elif hasattr(obj, 'status'):
+            active = getattr(self.model, 'ACTIVE', 1)
+            obj.status = active
+            obj.save(update_fields=['status'])
+        return HttpResponseRedirect(reverse_lazy('dashboard:list', kwargs={'section': self.section}))
+
+
+class ModelDuplicateView(ModelCRUDMixin, View):
+    """Duplicate a single object (shallow copy)."""
+    required_permission = 'add'
+
+    def get_object(self):
+        return get_object_or_404(self.model, pk=self.kwargs.get('pk'))
+
+    def post(self, request, *args, **kwargs):
+        obj = self.get_object()
+        obj.pk = None
+        obj._state.adding = True
+        # Clear common unique fields
+        for field in self.model._meta.fields:
+            if field.unique and field.name not in ['id', 'pk']:
+                setattr(obj, field.name, None)
+        # Update name/title fields to indicate copy
+        for attr in ['name', 'title', 'topic', 'code']:
+            if hasattr(obj, attr):
+                value = getattr(obj, attr)
+                if value:
+                    setattr(obj, attr, f'{value} (copy)')
+                    break
+        obj.save()
+        return HttpResponseRedirect(reverse_lazy('dashboard:list', kwargs={'section': self.section}))
+
+
+class BulkActionView(ModelCRUDMixin, View):
+    """Handle bulk archive/restore/delete for a section."""
+    required_permission = 'change'
+
+    def post(self, request, *args, **kwargs):
+        action = request.POST.get('bulk_action')
+        ids = request.POST.getlist('selected_ids')
+        if not ids:
+            return HttpResponseRedirect(request.META.get('HTTP_REFERER') or reverse_lazy('dashboard:list', kwargs={'section': self.section}))
+
+        qs = self.model.objects.filter(pk__in=ids)
+        if action == 'delete':
+            if not self._check_permission('delete'):
+                raise Http404('Permission denied')
+            for obj in qs:
+                if hasattr(obj, 'deleted_at'):
+                    obj.deleted_at = timezone.now()
+                    obj.save(update_fields=['deleted_at'])
+                else:
+                    obj.delete()
+        elif action == 'archive':
+            for obj in qs:
+                if hasattr(obj, 'deleted_at'):
+                    obj.deleted_at = timezone.now()
+                    obj.save(update_fields=['deleted_at'])
+                elif hasattr(obj, 'status'):
+                    obj.status = getattr(self.model, 'INACTIVE', 0)
+                    obj.save(update_fields=['status'])
+        elif action == 'restore':
+            for obj in qs:
+                if hasattr(obj, 'deleted_at'):
+                    obj.deleted_at = None
+                    obj.save(update_fields=['deleted_at'])
+                elif hasattr(obj, 'status'):
+                    obj.status = getattr(self.model, 'ACTIVE', 1)
+                    obj.save(update_fields=['status'])
+        return HttpResponseRedirect(request.META.get('HTTP_REFERER') or reverse_lazy('dashboard:list', kwargs={'section': self.section}))
+
+
+class ModelImportView(ModelCRUDMixin, TemplateView):
+    """Generic CSV import for a section."""
+    template_name = 'dashboard/crud/import.html'
+    required_permission = 'add'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['sample_header'] = ','.join(self.config.get('list_display', ['id']))
+        return ctx
+
+    def post(self, request, *args, **kwargs):
+        file = request.FILES.get('file')
+        if not file:
+            messages.error(request, _('No file uploaded.'))
+            return self.get(request, *args, **kwargs)
+        try:
+            decoded = file.read().decode('utf-8-sig')
+            reader = csv.DictReader(io.StringIO(decoded))
+        except Exception as e:
+            messages.error(request, _('Could not parse file: ') + str(e))
+            return self.get(request, *args, **kwargs)
+
+        created = 0
+        errors = []
+        excluded = self.config.get('exclude', ['created_at', 'updated_at', 'deleted_at'])
+        valid_fields = [f.name for f in self.model._meta.fields if f.name not in excluded and not f.auto_created]
+        for i, row in enumerate(reader, start=2):
+            data = {k.strip(): v.strip() for k, v in row.items() if k and k.strip() in valid_fields}
+            try:
+                self.model.objects.create(**data)
+                created += 1
+            except Exception as e:
+                errors.append(f'Row {i}: {e}')
+        if created:
+            messages.success(request, _('Imported {count} records.').format(count=created))
+        if errors:
+            for err in errors[:10]:
+                messages.error(request, err)
+        return HttpResponseRedirect(reverse_lazy('dashboard:list', kwargs={'section': self.section}))
+
+
+class ExamBaseView(StaffRequiredMixin):
+    """Base for exam create/update with inline questions."""
+
+    model = Exam
+    form_class = ExamForm
+    template_name = 'dashboard/exams/form.html'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['section'] = 'exams'
+        ctx['config'] = get_config('exams')
+        ctx['question_formset'] = ctx.get('question_formset') or self.get_question_formset()
+        return ctx
+
+    def get_question_formset(self):
+        raise NotImplementedError
+
+    def form_valid(self, form):
+        context = self.get_context_data()
+        question_formset = context['question_formset']
+        if question_formset.is_valid():
+            self.object = form.save()
+            question_formset.instance = self.object
+            question_formset.save()
+            return HttpResponseRedirect(self.get_success_url())
+        return self.render_to_response(self.get_context_data(form=form))
+
+
+class ExamCreateView(ExamBaseView, CreateView):
+    def get_question_formset(self):
+        return ExamQuestionFormSet(prefix='questions')
+
+    def get_success_url(self):
+        return reverse_lazy('dashboard:list', kwargs={'section': 'exams'})
+
+
+class ExamUpdateView(ExamBaseView, UpdateView):
+    def get_question_formset(self):
+        return ExamQuestionFormSet(instance=self.object, prefix='questions')
+
+    def get_success_url(self):
+        return reverse_lazy('dashboard:list', kwargs={'section': 'exams'})
 
 
 class QuestionBaseView(StaffRequiredMixin):

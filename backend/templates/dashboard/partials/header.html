@@ -4,9 +4,6 @@
     <button @click="mobileOpen = true" class="lg:hidden text-slate-500 hover:text-slate-700 dark:text-slate-300">
       <i class="fa-solid fa-bars text-xl"></i>
     </button>
-    <h1 class="text-lg lg:text-xl font-bold text-slate-800 dark:text-slate-100 truncate">
-      {% block page_title %}{% trans "Dashboard" %}{% endblock %}
-    </h1>
   </div>
 
   <div class="flex items-center gap-3 lg:gap-5">
@@ -27,7 +24,7 @@
       {% csrf_token %}
       <input type="hidden" name="next" value="{{ request.path }}">
       <select name="language" onchange="this.form.submit()"
-              class="admin-input bg-slate-100 dark:bg-slate-800 border border-transparent rounded-lg px-2 py-1.5 text-sm cursor-pointer">
+              class="admin-input bg-slate-100 dark:bg-slate-800 border border-transparent rounded-lg px-2 py-2 text-sm cursor-pointer">
         <option value="ar" {% if LANGUAGE_CODE == 'ar' %}selected{% endif %}>العربية</option>
         <option value="en" {% if LANGUAGE_CODE == 'en' %}selected{% endif %}>English</option>
       </select>
@@ -36,14 +33,14 @@
     <!-- Notifications -->
     <button class="relative w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700">
       <i class="fa-regular fa-bell"></i>
-      <span class="absolute top-1.5 end-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
+      <span class="absolute top-2 end-2 w-2 h-2 bg-red-500 rounded-full"></span>
     </button>
 
     <!-- User menu -->
     <div class="relative" x-data="{ open: false }" @click.away="open = false">
       <button @click="open = !open" class="flex items-center gap-2 focus:outline-none">
         <div class="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 flex items-center justify-center font-bold text-sm">
-          {{ request.user.first_name|first|default:request.user.email|first|default:"A" }}
+          {{ request.user.first_name|default:request.user.email|default:"A"|first }}
         </div>
         <span class="hidden lg:block text-sm font-medium text-slate-700 dark:text-slate-200">{{ request.user.full_name|default:request.user.email|default:request.user.phone }}</span>
         <i class="fa-solid fa-chevron-down text-xs text-slate-400 hidden lg:block"></i>

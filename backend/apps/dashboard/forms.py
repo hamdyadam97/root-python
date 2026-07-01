@@ -1,5 +1,6 @@
 from django import forms
 from apps.users.models import User
+from apps.content.models import Category
 from apps.dashboard.arabic import to_arabic
 
 
@@ -38,7 +39,7 @@ class BaseDashboardForm(forms.ModelForm):
             elif isinstance(widget, forms.Textarea):
                 widget.attrs.setdefault(
                     'class',
-                    self.base_class + ' min-h-[120px]'
+                    self.base_class + ' admin-textarea'
                 )
             elif isinstance(widget, forms.DateInput):
                 widget.attrs.setdefault('type', 'date')
@@ -97,3 +98,31 @@ class UserDashboardForm(BaseDashboardForm):
             user.save()
             self.save_m2m()
         return user
+
+
+class CategoryForm(BaseDashboardForm):
+    """Category form with parent restricted by level."""
+
+    class Meta:
+        model = Category
+        exclude = ['created_at', 'updated_at', 'deleted_at']
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filter parent choices based on the instance level when editing.
+        level = self.instance.level if self.instance and self.instance.pk else None
+        if level and level > 1:
+            self.fields['parent'].queryset = Category.objects.filter(level=level - 1, status=Category.ACTIVE)
+        else:
+            self.fields['parent'].queryset = Category.objects.filter(status=Category.ACTIVE)
+        self.fields['parent'].required = False
+
+    def clean(self):
+        cleaned = super().clean()
+        level = cleaned.get('level')
+        parent = cleaned.get('parent')
+        if level and level > 1 and not parent:
+            self.add_error('parent', 'يجب اختيار تصنيف أب لهذا المستوى.')
+        if parent and parent.level != level - 1:
+            self.add_error('parent', 'التصنيف الأب يجب أن يكون من المستوى السابق.')
+        return cleaned

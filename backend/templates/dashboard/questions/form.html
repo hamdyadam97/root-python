@@ -1,139 +1,152 @@
 {% extends "dashboard/base.html" %}
 {% load i18n dashboard_tags %}
 
-{% block title %}{% if object.pk %}تعديل{% else %}إضافة{% endif %} سؤال{% endblock %}
-{% block page_title %}{% if object.pk %}تعديل{% else %}إضافة{% endif %} سؤال{% endblock %}
+{% block title %}{% if object.pk %}{% trans "Edit" %}{% else %}{% trans "Add" %}{% endif %} {% trans "Question" %}{% endblock %}
+{% block page_title %}{% if object.pk %}{% trans "Edit Question" %}{% else %}{% trans "Add Question" %}{% endif %}{% endblock %}
 
 {% block content %}
-<div class="max-w-5xl mx-auto">
-  <!-- Header card -->
-  <div class="bg-gradient-to-r from-brand-600 to-brand-700 rounded-t-2xl shadow-lg px-8 py-6 text-white">
-    <div class="flex items-center gap-4">
-      <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center backdrop-blur">
-        <i class="fas fa-question-circle text-2xl"></i>
-      </div>
-      <div>
-        <h2 class="text-2xl font-bold">
-          {% if object.pk %}تعديل سؤال #{{ object.pk }}{% else %}إضافة سؤال جديد{% endif %}
-        </h2>
-        <p class="text-brand-100 text-sm mt-1">أنشئ السؤال والإجابات وحدد الإجابة الصحيحة</p>
-      </div>
+<div class="max-w-5xl mx-auto" x-data="{ tab: 'basic' }">
+  <!-- Header -->
+  <div class="admin-card rounded-2xl p-6 shadow-sm mb-6 flex items-center gap-4">
+    <div class="w-14 h-14 rounded-xl bg-brand-100 dark:bg-brand-900/30 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+      <i class="fa-solid fa-circle-question text-2xl"></i>
+    </div>
+    <div>
+      <h2 class="text-xl font-bold text-slate-800 dark:text-slate-100">
+        {% if object.pk %}{% trans "Edit Question" %} #{{ object.pk }}{% else %}{% trans "Add New Question" %}{% endif %}
+      </h2>
+      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">{% trans "Create the question, answers, and mark the correct one." %}</p>
     </div>
   </div>
 
-  <form method="post" class="bg-white rounded-b-2xl shadow-lg border-x border-b border-slate-200 p-8 space-y-8">
+  <form method="post" class="admin-card rounded-2xl shadow-sm p-6 lg:p-8">
     {% csrf_token %}
 
     {% if form.non_field_errors or answer_formset.non_field_errors %}
-      <div class="bg-rose-50 border border-rose-200 text-rose-700 px-5 py-4 rounded-xl text-sm flex items-start gap-3">
-        <i class="fas fa-exclamation-circle mt-0.5"></i>
-        <div>
-          {{ form.non_field_errors }}
-          {{ answer_formset.non_field_errors }}
-        </div>
+      <div class="mb-6 rounded-xl bg-rose-50 dark:bg-rose-900/10 border border-rose-200 dark:border-rose-900/30 text-rose-700 dark:text-rose-300 px-5 py-4 text-sm flex items-start gap-3">
+        <i class="fa-solid fa-circle-exclamation mt-1"></i>
+        <div>{{ form.non_field_errors }} {{ answer_formset.non_field_errors }}</div>
       </div>
     {% endif %}
 
-    <!-- Question text -->
-    <section class="rounded-xl border border-slate-300 shadow-sm p-6 bg-slate-50/50">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center">
-          <i class="fas fa-align-right"></i>
-        </div>
-        <h3 class="text-lg font-bold text-slate-800">نص السؤال</h3>
-      </div>
-      <div>
-        {{ form.text_question }}
-        {% if form.text_question.errors %}<p class="mt-2 text-xs text-rose-600 font-medium">{{ form.text_question.errors }}</p>{% endif %}
-      </div>
-    </section>
+    <!-- Tabs -->
+    <div class="border-b border-slate-200 dark:border-slate-700 mb-6">
+      <nav class="flex gap-1 overflow-x-auto">
+        <button type="button" @click="tab = 'basic'" :class="tab === 'basic' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap">
+          <i class="fa-solid fa-align-{% if LANGUAGE_CODE == 'ar' %}right{% else %}left{% endif %} me-1"></i>{% trans "Question" %}
+        </button>
+        <button type="button" @click="tab = 'categorization'" :class="tab === 'categorization' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap">
+          <i class="fa-solid fa-folder-tree me-1"></i>{% trans "Categorization" %}
+        </button>
+        <button type="button" @click="tab = 'media'" :class="tab === 'media' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap">
+          <i class="fa-solid fa-image me-1"></i>{% trans "Media & Display" %}
+        </button>
+        <button type="button" @click="tab = 'answers'" :class="tab === 'answers' ? 'border-brand-500 text-brand-600' : 'border-transparent text-slate-500 hover:text-slate-700'" class="px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap">
+          <i class="fa-solid fa-list-ol me-1"></i>{% trans "Answers" %}
+        </button>
+      </nav>
+    </div>
 
-    <!-- Categorization -->
-    <section class="rounded-xl border border-slate-300 shadow-sm p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 rounded-lg bg-emerald-100 text-emerald-600 flex items-center justify-center">
-          <i class="fas fa-folder-tree"></i>
+    <!-- Tab 1: Question -->
+    <div x-show="tab === 'basic'" x-transition class="space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Question Text" %}</label>
+          {{ form.text_question }}
+          {% if form.text_question.errors %}<p class="mt-2 text-xs text-rose-600">{{ form.text_question.errors }}</p>{% endif %}
         </div>
-        <h3 class="text-lg font-bold text-slate-800">التصنيف</h3>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Hint" %}</label>
+          {{ form.hint }}
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Time (minutes)" %}</label>
+          {{ form.time_minutes }}
+        </div>
+        <div class="md:col-span-2">
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Notes / Explanation" %}</label>
+          {{ form.notes }}
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Status" %}</label>
+          {{ form.status }}
+        </div>
       </div>
+    </div>
+
+    <!-- Tab 2: Categorization -->
+    <div x-show="tab === 'categorization'" x-transition class="space-y-5">
       <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.category.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">القسم</label>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Specialty / Category" %}</label>
           {{ form.category }}
         </div>
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.sub_category.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">القسم الفرعي</label>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Sub Category" %}</label>
           {{ form.sub_category }}
         </div>
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.sub_subcategory.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">القسم الفرعي الأصغر</label>
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Sub-Sub Category" %}</label>
           {{ form.sub_subcategory }}
         </div>
       </div>
-    </section>
-
-    <!-- Type & status -->
-    <section class="rounded-xl border border-slate-300 shadow-sm p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
-          <i class="fas fa-sliders-h"></i>
-        </div>
-        <h3 class="text-lg font-bold text-slate-800">الإعدادات الأساسية</h3>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.answer_type.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">نوع الإجابة</label>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Answer Type" %}</label>
           {{ form.answer_type }}
         </div>
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.status.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">الحالة</label>
-          {{ form.status }}
-        </div>
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.time_minutes.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">الوقت (دقيقة)</label>
-          {{ form.time_minutes }}
+      </div>
+    </div>
+
+    <!-- Tab 3: Media & Display -->
+    <div x-show="tab === 'media'" x-transition class="space-y-5">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div>
+          <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Video Link" %}</label>
+          {{ form.video_link }}
         </div>
       </div>
-    </section>
-
-    <!-- Answers -->
-    <section class="rounded-xl border-2 border-brand-200 shadow-sm p-6 bg-brand-50/30">
-      <div class="flex items-center justify-between mb-5">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center">
-            <i class="fas fa-list-ol"></i>
-          </div>
-          <div>
-            <h3 class="text-lg font-bold text-slate-800">الإجابات</h3>
-            <p class="text-xs text-slate-500">حدد خانة "صحيحة" بجانب الإجابة الصحيحة</p>
-          </div>
-        </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <label class="flex items-center gap-3 admin-card rounded-xl p-4 cursor-pointer hover:border-brand-300 transition">
+          {{ form.show_answer_explanation }}
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{% trans "Show Explanation" %}</span>
+        </label>
+        <label class="flex items-center gap-3 admin-card rounded-xl p-4 cursor-pointer hover:border-brand-300 transition">
+          {{ form.show_hint }}
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{% trans "Show Hint" %}</span>
+        </label>
+        <label class="flex items-center gap-3 admin-card rounded-xl p-4 cursor-pointer hover:border-brand-300 transition">
+          {{ form.show_answer }}
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{% trans "Show Answer" %}</span>
+        </label>
+        <label class="flex items-center gap-3 admin-card rounded-xl p-4 cursor-pointer hover:border-brand-300 transition">
+          {{ form.show_video }}
+          <span class="text-sm font-medium text-slate-700 dark:text-slate-200">{% trans "Show Video" %}</span>
+        </label>
       </div>
+    </div>
 
+    <!-- Tab 4: Answers -->
+    <div x-show="tab === 'answers'" x-transition class="space-y-5">
       {{ answer_formset.management_form }}
       <div class="space-y-4">
         {% for answer_form in answer_formset.forms %}
-          <div class="answer-row group relative rounded-xl border-2 border-slate-300 bg-white p-5 transition hover:border-brand-300 hover:shadow-md">
+          <div class="admin-card rounded-xl p-5 transition hover:border-brand-300">
             <div class="flex items-start gap-4">
-              <label class="flex flex-col items-center gap-2 pt-1 cursor-pointer min-w-[70px]">
-                <span class="text-xs font-bold text-slate-500">صحيحة</span>
-                <div class="relative">
-                  {{ answer_form.is_correct }}
-                  <div class="w-6 h-6 rounded-full border-2 border-slate-300 flex items-center justify-center peer-checked:bg-emerald-500 peer-checked:border-emerald-500 transition">
-                    <i class="fas fa-check text-white text-xs opacity-0 peer-checked:opacity-100"></i>
-                  </div>
-                </div>
+              <label class="flex flex-col items-center gap-1 pt-1 cursor-pointer min-w-20">
+                <span class="text-xs font-bold text-slate-500 dark:text-slate-400">{% trans "Correct" %}</span>
+                {{ answer_form.is_correct }}
               </label>
               <div class="flex-1">
-                <label class="block text-sm font-bold text-slate-700 mb-2">نص الإجابة</label>
+                <label class="block text-sm font-semibold text-slate-700 dark:text-slate-200 mb-2">{% trans "Answer Text" %}</label>
                 {{ answer_form.answer_option }}
-                {% if answer_form.answer_option.errors %}<p class="mt-2 text-xs text-rose-600 font-medium">{{ answer_form.answer_option.errors }}</p>{% endif %}
+                {% if answer_form.answer_option.errors %}<p class="mt-2 text-xs text-rose-600">{{ answer_form.answer_option.errors }}</p>{% endif %}
               </div>
               {% if answer_form.instance.pk %}
                 <label class="flex items-center gap-2 text-sm text-rose-600 cursor-pointer pt-8">
                   {{ answer_form.DELETE }}
-                  <i class="fas fa-trash"></i>
-                  <span>حذف</span>
+                  <i class="fa-solid fa-trash"></i>
+                  <span>{% trans "Delete" %}</span>
                 </label>
               {% endif %}
             </div>
@@ -141,83 +154,17 @@
           </div>
         {% endfor %}
       </div>
-    </section>
-
-    <!-- Display settings -->
-    <section class="rounded-xl border border-slate-300 shadow-sm p-6">
-      <div class="flex items-center gap-3 mb-5">
-        <div class="w-10 h-10 rounded-lg bg-violet-100 text-violet-600 flex items-center justify-center">
-          <i class="fas fa-eye"></i>
-        </div>
-        <h3 class="text-lg font-bold text-slate-800">إعدادات العرض</h3>
-      </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
-        <label class="flex items-center gap-3 bg-slate-50 rounded-lg border border-slate-200 p-4 cursor-pointer hover:border-brand-300 transition">
-          {{ form.show_answer_explanation }}
-          <span class="text-sm font-medium text-slate-700">شرح الإجابة</span>
-        </label>
-        <label class="flex items-center gap-3 bg-slate-50 rounded-lg border border-slate-200 p-4 cursor-pointer hover:border-brand-300 transition">
-          {{ form.show_hint }}
-          <span class="text-sm font-medium text-slate-700">التلميح</span>
-        </label>
-        <label class="flex items-center gap-3 bg-slate-50 rounded-lg border border-slate-200 p-4 cursor-pointer hover:border-brand-300 transition">
-          {{ form.show_answer }}
-          <span class="text-sm font-medium text-slate-700">عرض الإجابة</span>
-        </label>
-        <label class="flex items-center gap-3 bg-slate-50 rounded-lg border border-slate-200 p-4 cursor-pointer hover:border-brand-300 transition">
-          {{ form.show_video }}
-          <span class="text-sm font-medium text-slate-700">عرض الفيديو</span>
-        </label>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.video_link.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">رابط الفيديو</label>
-          {{ form.video_link }}
-        </div>
-        <div class="bg-slate-50 rounded-lg border border-slate-200 p-4">
-          <label for="{{ form.hint.id_for_label }}" class="block text-sm font-bold text-slate-700 mb-2">التلميح</label>
-          {{ form.hint }}
-        </div>
-      </div>
-    </section>
-
-    <!-- Notes -->
-    <section class="rounded-xl border border-slate-300 shadow-sm p-6">
-      <div class="flex items-center gap-3 mb-4">
-        <div class="w-10 h-10 rounded-lg bg-pink-100 text-pink-600 flex items-center justify-center">
-          <i class="fas fa-sticky-note"></i>
-        </div>
-        <h3 class="text-lg font-bold text-slate-800">ملاحظات</h3>
-      </div>
-      {{ form.notes }}
-    </section>
+    </div>
 
     <!-- Actions -->
-    <div class="flex items-center justify-end gap-3 pt-6 border-t border-slate-200">
-      <a href="{% url 'dashboard:list' 'questions' %}" class="px-6 py-2.5 border border-slate-300 rounded-xl text-slate-700 hover:bg-slate-50 text-sm font-bold transition">
-        إلغاء
+    <div class="flex items-center justify-end gap-3 pt-6 mt-8 border-t border-slate-100 dark:border-slate-700">
+      <a href="{% url 'dashboard:list' 'questions' %}" class="px-5 py-3 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-medium transition">
+        {% trans "Cancel" %}
       </a>
-      <button type="submit" class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white rounded-xl text-sm font-bold shadow-lg shadow-brand-200 transition">
-        <i class="fas fa-save ml-2"></i> حفظ السؤال
+      <button type="submit" class="px-5 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-lg text-sm font-medium shadow-sm transition inline-flex items-center gap-2">
+        <i class="fa-solid fa-floppy-disk"></i> {% trans "Save Question" %}
       </button>
     </div>
   </form>
 </div>
-
-<style>
-  .answer-row:has(input[name$="-is_correct"]:checked) {
-    border-color: #10b981 !important;
-    background-color: #ecfdf5 !important;
-    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.15);
-  }
-  .answer-row input[name$="-is_correct"] {
-    position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-  }
-  textarea {
-    min-height: 120px;
-  }
-</style>
-{% endblock %}
+{% endblock content %}

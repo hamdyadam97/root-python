@@ -110,6 +110,12 @@ MENU_GROUPS = {
         'icon': 'fa-money-bill-wave',
         'sections': ['payment_types', 'transactions', 'money_logs', 'card_tokens', 'invoices'],
     },
+    'reports': {
+        'label': 'Reports',
+        'label_ar': 'التقارير',
+        'icon': 'fa-chart-line',
+        'sections': [],
+    },
     'system': {
         'label': 'System',
         'label_ar': 'النظام',

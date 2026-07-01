@@ -41,7 +41,7 @@
           {% if group.url %}
             <li>
               <a href="{{ group.url }}"
-                 class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if request.path == group.url %}active bg-white/10{% endif %}">
+                 class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-sm {% if request.path == group.url %}active bg-white/10{% endif %}">
                 <i class="fa-solid {{ group.icon }} w-5 text-center"></i>
                 <span x-show="!sidebarCollapsed" x-transition class="whitespace-nowrap">
                   {% if LANGUAGE_CODE == 'ar' %}{{ group.label_ar }}{% else %}{{ group.label }}{% endif %}
@@ -52,9 +52,9 @@
           {% for item in group.items %}
             <li>
               <a href="{{ item.url }}"
-                 class="sidebar-link flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm {% if section == item.section %}active bg-white/10{% endif %}">
+                 class="sidebar-link flex items-center gap-3 px-3 py-3 rounded-lg text-sm {% if section == item.section %}active bg-white/10{% endif %}">
                 <i class="fa-solid {{ item.icon }} w-5 text-center"></i>
-                <span x-show="!sidebarCollapsed" x-transition class="whitespace-nowrap">{{ item.label }}</span>
+                <span x-show="!sidebarCollapsed" x-transition class="whitespace-nowrap">{{ item.label|ar }}</span>
               </a>
             </li>
           {% endfor %}

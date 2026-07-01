@@ -13,7 +13,7 @@ from drf_spectacular.views import (
 )
 
 urlpatterns = [
-   # path('system-admin/', admin_site.urls),
+    path('system-admin/', admin_site.urls),
     path('admin/', include('apps.dashboard.urls')),
     path('api/', include('apps.core.urls')),
     path('i18n/', include('django.conf.urls.i18n')),

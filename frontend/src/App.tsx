@@ -29,9 +29,6 @@ import { SettingsPage } from '@/pages/dashboard/SettingsPage';
 import { SupportPage } from '@/pages/dashboard/SupportPage';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { AdminLayout } from '@/components/admin/AdminLayout';
-import { AdminDashboard } from '@/pages/admin/AdminDashboard';
-import { EntityManager } from '@/pages/admin/EntityManager';
 
 function MainLayoutWrapper() {
   return (
@@ -61,14 +58,6 @@ function ExamResultWrapper() {
   return (
     <ProtectedRoute>
       <ExamResultPage />
-    </ProtectedRoute>
-  );
-}
-
-function AdminLayoutWrapper() {
-  return (
-    <ProtectedRoute>
-      <AdminLayout />
     </ProtectedRoute>
   );
 }
@@ -115,11 +104,6 @@ export default function App() {
           <Route path="/user/support" element={<SupportPage />} />
         </Route>
 
-        {/* Admin routes */}
-        <Route path="/admin" element={<AdminLayoutWrapper />}>
-          <Route index element={<AdminDashboard />} />
-          <Route path=":entity" element={<EntityManager />} />
-        </Route>
       </Routes>
       <AuthModal />
     </>
